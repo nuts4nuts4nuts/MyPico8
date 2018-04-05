@@ -1,8 +1,6 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
-snakedirection = {x=1,y=0}
-
 vec2 = {}
 
 function makevec2(xa, ya)
@@ -19,10 +17,41 @@ function vec2.__sub(a,b)
   return makevec2(a.x-b.x,a.y-b.y)
 end
 
-head=makevec2(64,64)
-tail=makevec2(60,64)
-snakepositions={head,tail}
+function vec2.__mul(a,b)
+  if type(a) == "number" then
+    --Scale b by a
+    return makevec2(a * b.x, a * b.y)
+  elseif type(b) == "number" then
+    --Scale a by b
+    return makevec2(b * a.x, b * a.y)
+  else
+    --Dot product
+    return (a.x * b.x) + (a.y * b.y)
+  end
+end
+
+--Inspired by this queue implementation https://www.lua.org/pil/11.4.html makevec2(64,64),makevec2(60,64)
+snakequeue={head=0, tail=-1}
+function snakequeue.push(q, value)
+  local head = q.head - 1
+  q.head = head
+  q[head] = value
+end
+
+function snakequeue.pop(q)
+  local tail = q.tail
+  if q.head > tail then error("queue is empty") end
+  local value = q[tail]
+  q[tail] = nil
+  q.tail = tail-1
+  return value
+end
+
+toadd = 0
 snakesize = 4
+snakedirection = makevec2(1,0)
+updatespermove = 4
+updatessincemove = 0
 
 --pure
 function getdir(pointa, pointb)
@@ -50,48 +79,54 @@ function getdir(pointa, pointb)
 end
 
 function snakemove(body, direction)
-  local bodysize = #body
-  --move the body from the tail forward
-  for i=bodysize,2,-1 do
-    body[i] = move(body[i],getdir(body[i],body[i-1]))
+  if toadd > 0 then
+    --if there are pieces to add, then add them in front of the head
+    toadd -= 1
+    body:push(body[body.head] + (direction * snakesize))
+  else
+    --remove the tail and put it in front of the head
+    body:pop()
+    body:push(body[body.head] + (direction * snakesize))
   end
-  --move the head forward
-  body[1] = move(body[1], direction)
 end
 
 function snakedraw(body, direction)
   --draw the snake's head
-  --pset(body[1].x,body[1].y,14)
-  spr(1,body[1].x,body[1].y)
+  --pset(body[body.head].x,body[body.head].y,14)
+  spr(1,body[body.head].x,body[body.head].y)
   --draw the snake's body
-  local bodysize = #body
-
+  local bodysize = abs(body.head - body.tail)
   if bodysize > 2 then
-    for i=2,bodysize-1 do
-      pset(body[i].x,body[i].y,10)
+    for i=body.head+1,body.tail-1,1 do
+      pset(body[i].x,body[i].y,6)
     end
   end
   --draw the snake's tail
-  pset(body[bodysize].x,body[bodysize].y,7)
+  pset(body[body.tail].x,body[body.tail].y,7)
 end
 
-function snakegrow(body)
-  newpiece=makevec2(0,0)
-  add(body, newpiece)
+function _init()
+  snakequeue:push(makevec2(64,64))
+  snakequeue:push(makevec2(63,64))
 end
 
 function _update()
-  if (btn(🅾️)) then snakegrow(snakepositions) end
-  if (btn(⬅️)) then snakedirection={x=-1,y=0} end
-  if (btn(➡️)) then snakedirection={x=1,y=0} end
-  if (btn(⬆️)) then snakedirection={x=0,y=-1} end
-  if (btn(⬇️)) then snakedirection={x=0,y=1} end
-  snakemove(snakepositions, snakedirection)
+  if (btn(🅾️)) then toadd += 1 end
+  if (btn(⬅️)) then snakedirection=makevec2(-1,0) end
+  if (btn(➡️)) then snakedirection=makevec2(1,0) end
+  if (btn(⬆️)) then snakedirection=makevec2(0,-1) end
+  if (btn(⬇️)) then snakedirection=makevec2(0,1) end
+  
+  updatessincemove += 1
+  if updatessincemove >= updatespermove then
+    snakemove(snakequeue, snakedirection)
+    updatessincemove = 0
+  end
 end
 
 function _draw()
   cls(0)
-  snakedraw(snakepositions,snakedirection)
+  snakedraw(snakequeue,snakedirection)
 end
 
 __gfx__
