@@ -102,7 +102,7 @@ function drawsegment(upspriteid, rightspriteid, segment, direction)
     fliph = true
   elseif direction.y == 1 then
     flipv = true
-  else --if direction.y == -1 OR default
+  else --if direction.y == -1 or default
    --do nothing for now
   end
   
